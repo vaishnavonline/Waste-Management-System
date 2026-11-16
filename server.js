@@ -329,7 +329,10 @@ initializeDatabase()
     });
   })
   .catch((error) => {
-    console.error("Database startup failed:", error.message);
+    console.error("Database startup failed:", error);
+    console.error("Error message:", error?.message);
+    console.error("Error code:", error?.code);
+    console.error("Error stack:", error?.stack);
     console.error("Check your MySQL service and .env settings.");
     process.exit(1);
   });
