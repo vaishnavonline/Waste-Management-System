@@ -1,0 +1,10 @@
+{
+  "name": "waste-management-system",
+  "version": "1.0.0",
+  "description": "Waste Management System",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  }
+}

@@ -1,0 +1,317 @@
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WasteCare | Admin Dashboard</title>
+    <link rel="stylesheet" href="style.css" />
+    <style>
+      body {
+        background: #f3f7f3;
+        color: #26372b;
+      }
+      .admin-container {
+        max-width: 1150px;
+        margin: 35px auto;
+        padding: 20px;
+      }
+      .admin-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 18px;
+        margin: 25px 0;
+      }
+      .stat-card,
+      .panel {
+        background: white;
+        padding: 22px;
+        border-radius: 12px;
+        box-shadow: 0 3px 12px #0000000d;
+        margin-bottom: 22px;
+      }
+      .stat-card h3 {
+        color: #526456;
+        font-size: 16px;
+      }
+      .stat-card p {
+        font-size: 30px;
+        font-weight: bold;
+        color: #247944;
+      }
+      .panel {
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+        min-width: 600px;
+      }
+      th,
+      td {
+        padding: 12px;
+        border-bottom: 1px solid #e4eae5;
+        text-align: left;
+      }
+      th {
+        background: #edf5ee;
+      }
+      button {
+        padding: 10px 15px;
+        border: 0;
+        border-radius: 6px;
+        background: #247944;
+        color: white;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.6;
+      }
+      #statusMessage {
+        font-weight: bold;
+      }
+      .empty {
+        padding: 18px 0;
+        color: #607064;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="header">
+      <nav class="navbar">
+        <a href="index.html" class="logo">♻️ WasteCare Admin</a>
+        <div class="nav-links">
+          <a href="index.html">View Website</a>
+          <a href="admin.html">Dashboard</a>
+        </div>
+      </nav>
+    </header>
+
+    <main class="admin-container">
+      <div class="admin-top">
+        <div>
+          <h1>Admin Dashboard</h1>
+          <p>Registered users and waste collection requests.</p>
+        </div>
+        <button id="refreshButton" type="button">Refresh Data</button>
+      </div>
+
+      <p id="statusMessage" role="status">Loading dashboard...</p>
+
+      <section class="stats">
+        <article class="stat-card">
+          <h3>Total Registered Users</h3>
+          <p id="usersCount">0</p>
+        </article>
+        <article class="stat-card">
+          <h3>Total Pickup Requests</h3>
+          <p id="requestsCount">0</p>
+        </article>
+        <article class="stat-card">
+          <h3>Completed Pickups</h3>
+          <p id="completedCount">0</p>
+        </article>
+      </section>
+
+      <section class="panel">
+        <h2>Registered Users</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Registered At</th>
+            </tr>
+          </thead>
+          <tbody id="usersTable">
+            <tr>
+              <td colspan="4">Loading users...</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="panel">
+        <h2>Pickup Requests</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Phone</th>
+              <th>Address</th>
+              <th>Waste Type</th>
+              <th>Pickup Date</th>
+              <th>Status</th>
+              <th>Update</th>
+            </tr>
+          </thead>
+          <tbody id="requestsTable">
+            <tr>
+              <td colspan="8">Loading requests...</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </main>
+
+    <script>
+      const statusMessage = document.getElementById("statusMessage");
+      const usersTable = document.getElementById("usersTable");
+      const requestsTable = document.getElementById("requestsTable");
+
+      function escapeHTML(value) {
+        return String(value ?? "").replace(
+          /[&<>"']/g,
+          (ch) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[ch],
+        );
+      }
+
+      async function loadDashboard() {
+        statusMessage.textContent = "Loading dashboard...";
+
+        try {
+          const [overviewResponse, requestsResponse] = await Promise.all([
+            fetch("/api/admin/overview"),
+            fetch("/api/pickups"),
+          ]);
+
+          const overview = await overviewResponse.json();
+          const pickupData = await requestsResponse.json();
+
+          if (!overviewResponse.ok || !overview.success) {
+            throw new Error(overview.message || "Could not load users.");
+          }
+          if (!requestsResponse.ok || !pickupData.success) {
+            throw new Error(pickupData.message || "Could not load pickups.");
+          }
+
+          const users = Array.isArray(overview.users) ? overview.users : [];
+          const requests = Array.isArray(pickupData.requests)
+            ? pickupData.requests
+            : [];
+
+          document.getElementById("usersCount").textContent =
+            overview.totalUsers ?? users.length;
+          document.getElementById("requestsCount").textContent =
+            overview.totalRequests ?? requests.length;
+          document.getElementById("completedCount").textContent =
+            overview.completedRequests ?? 0;
+
+          if (!users.length) {
+            usersTable.innerHTML =
+              '<tr><td colspan="4" class="empty">No registered users found.</td></tr>';
+          } else {
+            usersTable.innerHTML = users
+              .map(
+                (user) => `
+            <tr>
+              <td>${escapeHTML(user.id)}</td>
+              <td>${escapeHTML(user.name)}</td>
+              <td>${escapeHTML(user.email)}</td>
+              <td>${escapeHTML(
+                user.created_at
+                  ? new Date(user.created_at).toLocaleString()
+                  : "N/A",
+              )}</td>
+            </tr>
+          `,
+              )
+              .join("");
+          }
+
+          if (!requests.length) {
+            requestsTable.innerHTML =
+              '<tr><td colspan="8" class="empty">No pickup requests yet.</td></tr>';
+          } else {
+            requestsTable.innerHTML = requests
+              .map((item) => {
+                const status = item.status || "Pending";
+                return `
+              <tr>
+                <td>${escapeHTML(item.id)}</td>
+                <td>${escapeHTML(item.name)}</td>
+                <td>${escapeHTML(item.phone)}</td>
+                <td>${escapeHTML(item.address)}</td>
+                <td>${escapeHTML(item.waste_type)}</td>
+                <td>${escapeHTML(item.pickup_date)}</td>
+                <td>${escapeHTML(status)}</td>
+                <td>
+                  <select id="status-${escapeHTML(item.id)}">
+                    <option value="Pending" ${status === "Pending" ? "selected" : ""}>Pending</option>
+                    <option value="Completed" ${status === "Completed" ? "selected" : ""}>Completed</option>
+                  </select>
+                  <button type="button" data-update-id="${escapeHTML(item.id)}">Save</button>
+                </td>
+              </tr>
+            `;
+              })
+              .join("");
+          }
+
+          statusMessage.textContent = "Dashboard loaded successfully.";
+        } catch (error) {
+          statusMessage.textContent = "Error: " + error.message;
+          usersTable.innerHTML =
+            '<tr><td colspan="4">Could not load users. Check the backend server.</td></tr>';
+          requestsTable.innerHTML =
+            '<tr><td colspan="8">Could not load pickup requests.</td></tr>';
+        }
+      }
+
+      requestsTable.addEventListener("click", async (event) => {
+        const button = event.target.closest("button[data-update-id]");
+        if (!button) return;
+
+        const id = button.dataset.updateId;
+        const select = document.getElementById("status-" + id);
+        button.disabled = true;
+
+        try {
+          const response = await fetch(
+            "/api/pickups/" + encodeURIComponent(id),
+            {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ status: select.value }),
+            },
+          );
+
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.message || "Update failed.");
+
+          await loadDashboard();
+          statusMessage.textContent = "Pickup status updated successfully.";
+        } catch (error) {
+          statusMessage.textContent =
+            "Could not update status: " + error.message;
+        } finally {
+          button.disabled = false;
+        }
+      });
+
+      document
+        .getElementById("refreshButton")
+        .addEventListener("click", loadDashboard);
+
+      loadDashboard();
+    </script>
+  </body>
+</html>
+```
